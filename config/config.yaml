@@ -45,7 +45,7 @@ model:
 
 env:
   gpu: 1
-  save_dir: "./experiments"
+  save_dir: "./experiments/test"
   seed: 7
   workers: 6
 

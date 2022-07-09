@@ -53,12 +53,15 @@ class CrnVad(BaseModel):
         """
             Args:
                 x: [B, 1, F, T]
+
             Returns:
                 [B, T]
             """
         assert x.dim() == 4
         # # Pad look ahead
+        print(f"Input {x.shape}")
         x = functional.pad(x, [0, self.look_ahead])
+        print(f"after pad {x.shape}")
         batch_size, n_channels, n_freqs, n_frames = x.size()
 
         x_mu = torch.mean(x, dim=(1, 2, 3)).reshape(batch_size, 1, 1, 1)
@@ -68,44 +71,20 @@ class CrnVad(BaseModel):
             x = block(x)
         x = x.permute(0, 3, 1, 2)
         x = x.reshape(batch_size, n_frames, -1).contiguous()
+
+        print(f"Before RNN {x.shape}")
+
         x, (h, c) = self.rnn(x)
         x = self.fc(x)
         x = self.activation(x)
         x = self.classification(x)
         x = self.sigmoid(x)
 
+        print(f"After RNN {x.shape}")
+        print(f"After RNN look ahead {x[:, self.look_ahead :, 0]}")
+
         return x[:, self.look_ahead :, 0]
 
-
-# acoustic:
-#   n_fft: 320
-#   win_length: 320
-#   hop_length: 160
-#   center: true
-#   n_mel: 80
-
-# Input before MEL torch.Size([32, 153360])
-# Input torch.Size([32, 1, 80, 959])
-# after pad torch.Size([32, 1, 80, 961])
-# Before RNN torch.Size([32, 961, 1280])
-# After RNN torch.Size([32, 961, 1])
-# After RNN look ahead torch.Size([32, 959])
-
-
-# Input before MEL torch.Size([32, 214400])
-# Input torch.Size([32, 1, 80, 1341])
-# after pad torch.Size([32, 1, 80, 1343])
-# Before RNN torch.Size([32, 1343, 1280])
-# After RNN torch.Size([32, 1343, 1])
-# After RNN look ahead torch.Size([32, 1341])
-
-
-# Input before MEL torch.Size([32, 290720])
-# Input torch.Size([32, 1, 80, 1818])
-# after pad torch.Size([32, 1, 80, 1820])
-# Before RNN torch.Size([32, 1820, 1280])
-# After RNN torch.Size([32, 1820, 1])
-# After RNN look ahead torch.Size([32, 1818])
 
 if __name__ == "__main__":
 

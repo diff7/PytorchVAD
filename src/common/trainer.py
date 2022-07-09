@@ -239,7 +239,9 @@ class BaseTrainer:
         ) = metrics.compute_thresholds(labels, scores)
         return eer_t, fpr_1_t, fnr_1_t, eer, fpr_1_fnr, fnr_1_fpr
 
-    def metrics_visualization(self, labels, predicted, metrics_list, epoch):
+    def metrics_visualization(
+        self, labels, predicted, metrics_list, epoch, prefix="OUR"
+    ):
         """
         Get metrics on validation dataset by paralleling.
         """
@@ -260,8 +262,8 @@ class BaseTrainer:
             mean_score = metrics.REGISTERED_METRICS[metric_name](fpr, tpr)
 
             # Add the mean value of the metric to tensorboard
-            self.writer.add_scalar(
-                f"Validation/{metric_name}", mean_score, epoch
+            self.writer.add_scalars(
+                f"Validation/{metric_name}", {prefix: mean_score}, epoch
             )
 
             if metric_name == "ROC_AUC":
@@ -282,15 +284,19 @@ class BaseTrainer:
             (predicted.reshape(-1) > eer_t).int(), labels.reshape(-1)
         )
 
-        self.writer.add_scalar(f"Validation/F1", f1, epoch)
-        self.writer.add_scalar(f"Validation/Precision", precision, epoch)
-        self.writer.add_scalar(f"Validation/recall", recall, epoch)
+        self.writer.add_scalars(f"Validation/F1", {prefix: f1}, epoch)
+        self.writer.add_scalars(
+            f"Validation/Precision", {prefix: precision}, epoch
+        )
+        self.writer.add_scalars(f"Validation/recall", {prefix: recall}, epoch)
 
         self.thresholds = {"eer": eer_t, "fpr_1": fpr_1_t, "fnr_1": fnr_1_t}
 
         return roc_auc_mean
 
     def train(self):
+        print("Test validation")
+        self._validation_epoch(0)
         for epoch in range(self.start_epoch, self.epochs + 1):
             print(
                 self.color_tool.yellow(f"{'=' * 15} {epoch} epoch {'=' * 15}")

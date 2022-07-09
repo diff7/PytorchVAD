@@ -22,6 +22,11 @@ def main(cfg, resume, device):
     loaders = []
 
     for t in [True, False]:
+        if t:
+            bs = cfg.training.batch_size
+        else:
+            bs = 1
+
         loaders.append(
             DataLoader(
                 VADSet(
@@ -39,6 +44,7 @@ def main(cfg, resume, device):
                     validation=t,
                 ),
                 collate_fn=collate_fn,
+                batch_size=bs,
             )
         )
 
