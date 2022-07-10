@@ -1,7 +1,8 @@
-#  Updated
+#  Updated!
 #### What is new:
 1. Silero model as a benchmark was added
 2. A new "frequency based" model was trained on a raw input(see results and model description below)
+3. New benchmark resulsts were added
 
 
 # Voice activity Detection
