@@ -119,6 +119,19 @@ def random_window_transform(x, seq_len=0, window=5):
 
 It creates a random convolution with fixed window length. Conv weights can be limited to avoid strong modifications. Unfortunately, I have not tested it with the current problem.
 
+## Proposed model on raw input
+
+The main idea behind this model is to eliminate mel spectrogram block and to learn equivalent convolutional transformations instead.
+
+The main block of the model is in /src/model/frequency_layer.py 
+
+### Block's shcematic representation
+
+![raw input modelj](/images/frmodel.png)
+
+Apart from P the block is also processed with some "window" size to aggregate input signal.
+
+
 ## Models review:
 
 There are several types of models for VAD problem, some of them DNN based and some are not and rely on classical solutions (WebRTC - GMM). One of the main challenges for VAD is noise and signal strength, here DNN based solutions excel the most. Usually, DNN based solutions are combination of CNN and RNN layers or only one from the both.
@@ -130,15 +143,3 @@ Another interesting direction of work is Multilingual VAD systemes (https://arxi
 
 Since, VAD models require high computational efficiency it is reasonable to apply NAS (Neural architechture search for this problem) with computaional constrains. Authors in https://arxiv.org/pdf/2201.09032.pdf explored NAS for VAD but unfortunately without computational constrains.
 
-
-## Proposed frequency based model on raw input
-
-The main idea behind this model is to eliminate mel spectrogram block and to learn equivalent convolutional transformations instead.
-
-The main block of the model is in /src/model/frequency_layer.py 
-
-### Block's shcematic representation
-
-![raw input modelj](/images/frmodel.png)
-
-Apart from P the block is also processed with some "window" size to aggregate input signal.
