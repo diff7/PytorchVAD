@@ -1,3 +1,9 @@
+#  Updated
+#### What is new:
+1. Silero model as a benchmark was added
+2. A new "frequency based" model was trained on a raw input(see results and model description below)
+
+
 # Voice activity Detection
 
 source: https://github.com/ilyailyash/Torch-Voice-activity-detection
@@ -30,29 +36,38 @@ weight_decay: 1e-3
 
 To check other training settings I refer to ./config/config.yaml
 
-## Results
+# Results
 
 For validation set I used 0.2 noisy portion of train-clean-360.
-Data augmentation for validation set was performed randmoly during validation, I am aware that it is not correct but It provides with some reliable estimates.
+Data augmentation for validation set was performed randmoly during validation, I am aware that it is not correct but It provides with some reliable estimates. We can see on plots that even on randomlu augmented samples silero model provides roughly the same reulst.
+#### Lattency
+Lattency was measured per file and it includes data laoding time.
+Latency for raw model is significantly faster.
+
 
 | Model   | EER  | FPR with FNR = 1% | FNR with FPR = 1% | F1   | AUC  | avg. Latency per file seconds |
 | ------- | ---- | ----------------- | ----------------- | ---- | ---- | ----------------------------- |
-| orig    | 0.45 | 0.53              | 0.91%             | 0.81 | 0.80 | ~30                           |
+| original    | 0.45 | 0.53              | 0.91%             | 0.81 | 0.80 | ~30                           |
 | silero  | 0.38 | 0.98              | 0.89%             | 0.74 | 0.67 |                               |
-| raw was | 0.39 | 0.89              | 0.91%             | 0.73 | 0.69 | ~18                           |
+| frequency based | 0.39 | 0.89              | 0.91%             | 0.73 | 0.69 | ~18                           |
 
-## Lattency
 
-Lattency was measured per file and it includes data laoding time.
-Latency for raw model is significantly faster.
+Original model VS silero (./src/model/vad_model.py)
+![base vs silerj](/images/silero_base.png)
+
+Fequency based model on raw files VS silero (./src/model/vad_frequency_cnn.py)
+![base vs silerj](/images/silero_base.png)
+
 
 Results on required dataset can be found in './results'
 
 I consider metrics used in the original implementation to be reasonable. EER, FPR with 1% FNR and FNR with 1% FPR was calculated during validation. More details src/utils/metrics.py
 
-![metrics](metrics.png)
-
 From the plots it can be seen that the training procedure could be improved.
+
+### Results summary:
+- Proposed frequency based model provides with the similar results as silero vad
+- Frequency based model is faster compared to "original" model due to the fact it does not compute mel spectrogramms.
 
 ## Training a model
 
@@ -113,3 +128,16 @@ https://arxiv.org/pdf/2203.02944.pdf. Surprisingly, models with self attention d
 Another interesting direction of work is Multilingual VAD systemes (https://arxiv.org/abs/2010.12277) and unsuperwised approaches.
 
 Since, VAD models require high computational efficiency it is reasonable to apply NAS (Neural architechture search for this problem) with computaional constrains. Authors in https://arxiv.org/pdf/2201.09032.pdf explored NAS for VAD but unfortunately without computational constrains.
+
+
+## Proposed frequency based model on raw input
+
+The main idea behind this model is to eliminate mel spectrogram block and to learn equivalent convolutional transformations instead.
+
+The main block of the model is in /src/model/frequency_layer.py 
+
+### Block's shcematic representation
+
+![raw input modelj](/images/frmodel.png)
+
+Apart from P the block is also processed with some "window" size to aggregate input signal.
