@@ -35,9 +35,16 @@ To check other training settings I refer to ./config/config.yaml
 For validation set I used 0.2 noisy portion of train-clean-360.
 Data augmentation for validation set was performed randmoly during validation, I am aware that it is not correct but It provides with some reliable estimates.
 
-| EER  | FPR with FNR = 1% | FNR with FPR = 1% | F1   |
-| ---- | ----------------- | ----------------- | ---- |
-| 0.45 | 0.96              | 0.92%             | 0.96 |
+| Model   | EER  | FPR with FNR = 1% | FNR with FPR = 1% | F1   | AUC  | avg. Latency per file seconds |
+| ------- | ---- | ----------------- | ----------------- | ---- | ---- | ----------------------------- |
+| orig    | 0.45 | 0.53              | 0.91%             | 0.81 | 0.80 | ~30                           |
+| silero  | 0.38 | 0.98              | 0.89%             | 0.74 | 0.67 |                               |
+| raw was | 0.39 | 0.89              | 0.91%             | 0.73 | 0.69 | ~18                           |
+
+## Lattency
+
+Lattency was measured per file and it includes data laoding time.
+Latency for raw model is significantly faster.
 
 Results on required dataset can be found in './results'
 
@@ -46,9 +53,6 @@ I consider metrics used in the original implementation to be reasonable. EER, FP
 ![metrics](metrics.png)
 
 From the plots it can be seen that the training procedure could be improved.
-## Lattency
-
-Lattency was measured per file and it includes data laoding time. The current lattency per file is ~ 30ms.
 
 ## Training a model
 
@@ -61,6 +65,7 @@ python scripts/preprocessing_dataset.py -D path_to_librispeech_dataset
 
 - change paths to datasets in ./config/config.yaml
 - install all the dependencies from requirements.txt
+- set type of a model in config file model.model_type use "base" - use mel spectrograms, "fr" use raw files.
 - run train.py -g YOUR_GPU (Where YOUR_GPU is your favourite gpu)
 
 ## Inference
@@ -77,12 +82,14 @@ python inference.py -g YOUR_GPU -chk  path_to_stored_model -dir outptut_dir
 ### Possible improvements & Model choice
 
 There are several ways to improve model perfromance:
+
 - Change model desing. But need to keep the model fast enough.
-Current model was taken from here: https://github.com/liyaguang/DCRNN.
-- Use distilation e.g. with SILERO or other models, enmsemble of models as teachers 
+  Current model was taken from here: https://github.com/liyaguang/DCRNN.
+- Use distilation e.g. with SILERO or other models, enmsemble of models as teachers
 - Different augmentaions, datasets and training settings
 
 One of possible ways to augment time series data is the following:
+
 ```python
 def random_window_transform(x, seq_len=0, window=5):
     device = x.device
@@ -96,13 +103,13 @@ def random_window_transform(x, seq_len=0, window=5):
 
 It creates a random convolution with fixed window length. Conv weights can be limited to avoid strong modifications. Unfortunately, I have not tested it with the current problem.
 
-
 ## Models review:
-There are several types of models for VAD problem, some of them DNN based and some are not and rely on classical solutions (WebRTC - GMM). One of the main challenges for VAD is noise and signal strength, here DNN based solutions excel the most. Usually, DNN based solutions are combination of CNN and RNN layers or only one from the both.  
 
-Atention and self attention was recently explored for VAD problem e.g.: 
+There are several types of models for VAD problem, some of them DNN based and some are not and rely on classical solutions (WebRTC - GMM). One of the main challenges for VAD is noise and signal strength, here DNN based solutions excel the most. Usually, DNN based solutions are combination of CNN and RNN layers or only one from the both.
+
+Atention and self attention was recently explored for VAD problem e.g.:
 https://arxiv.org/pdf/2203.02944.pdf. Surprisingly, models with self attention demonstrate reasonable computational efficiency.
 
-Another interesting direction of work is Multilingual VAD systemes (https://arxiv.org/abs/2010.12277) and unsuperwised approaches. 
+Another interesting direction of work is Multilingual VAD systemes (https://arxiv.org/abs/2010.12277) and unsuperwised approaches.
 
 Since, VAD models require high computational efficiency it is reasonable to apply NAS (Neural architechture search for this problem) with computaional constrains. Authors in https://arxiv.org/pdf/2201.09032.pdf explored NAS for VAD but unfortunately without computational constrains.

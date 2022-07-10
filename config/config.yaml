@@ -34,18 +34,20 @@ acoustic:
   n_mel: 80
 
 model:
+  model_type: "fr" #"base" # two types 'base' and 'fr'
   rnn_layers: 2
   rnn_units: 128
   kernel_num: [1, 32, 64, 128, 256]
+  periods: [3, 7, 11, 20, 25, 30, 50, 70]
+  fr_features_size: 8
   fc_hidden_dim: 128
   fft_len: 320
   look_ahead: 2
-  use_offline_norm: true
   spec_size: 80
 
 env:
   gpu: 1
-  save_dir: "./experiments"
+  save_dir: "./experiments/fr"
   seed: 7
   workers: 6
 

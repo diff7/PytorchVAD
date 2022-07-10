@@ -17,14 +17,18 @@ class Inferencer(BaseInferencer):
         self.sr = config.data.sr
 
         self.dataloader = dataloader
-        self.mel_spectrogram = MelSpectrogram(
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            center=center,
-            n_mels=n_mel,
-        )
-        self.mel_spectrogram.to(self.device)
+
+        self.use_mel = config.model.model_type == "base"
+
+        if self.use_mel:
+            self.mel_spectrogram = MelSpectrogram(
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=win_length,
+                center=center,
+                n_mels=n_mel,
+            )
+            self.mel_spectrogram.to(self.device)
 
     @torch.no_grad()
     def mel(self, noisy):
@@ -52,7 +56,10 @@ class Inferencer(BaseInferencer):
                     len(name) == 1
                 ), "The batch size of inference stage must be 1."
                 name = name[0]
-                scores = self.mel(noisy.to(self.device))
+                if self.use_mel:
+                    scores = self.mel(noisy.to(self.device))
+                else:
+                    scores = self.model(noisy.to(self.device))
                 line = name + ", [" + ",".join([str(s) for s in scores]) + "]\n"
                 f.write(line)
 
