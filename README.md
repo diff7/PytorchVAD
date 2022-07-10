@@ -129,7 +129,8 @@ The main block of the model is in /src/model/frequency_layer.py
 
 ![raw input modelj](/images/frmodel.png)
 
-Apart from P the block is also processed with some "window" size to aggregate input signal.
+In the implementation there are two convolutional layers are used. One aggregates chunks with P frequencies. Another
+aggregates input signal along sequece dimension with some arbitrary window. Number of channels for both of the layers is quite small and set to 8.
 
 
 ## Literature overeview:
