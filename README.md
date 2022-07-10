@@ -125,7 +125,7 @@ The main idea behind this model is to eliminate mel spectrogram block and to lea
 
 The main block of the model is in /src/model/frequency_layer.py 
 
-### Block's shcematic representation
+### Block's shcematic illustration
 
 ![raw input modelj](/images/frmodel.png)
 
