@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 
 from omegaconf import OmegaConf as omg
 from src.model.vad_model import CrnVad
+from src.model.vad_frequency_cnn import FrModel
 from src.dataset.dataset_main import VADSet, collate_fn
 from src.trainer.vad_trainer import Trainer
 from src.model.loss import BCELossMaskOutput
@@ -50,16 +51,26 @@ def main(cfg, resume, device):
 
     train_loader, val_loader = loaders
 
-    model = CrnVad(
-        rnn_layers=cfg.model.rnn_layers,
-        rnn_units=cfg.model.rnn_units,
-        kernel_num=cfg.model.kernel_num,
-        fc_hidden_dim=cfg.model.fc_hidden_dim,
-        fft_len=cfg.model.fft_len,
-        look_ahead=cfg.model.look_ahead,
-        use_offline_norm=cfg.model.use_offline_norm,
-        spec_size=cfg.model.spec_size,
-    )
+    if cfg.model.model_type == "base":
+        model = CrnVad(
+            rnn_layers=cfg.model.rnn_layers,
+            rnn_units=cfg.model.rnn_units,
+            kernel_num=cfg.model.kernel_num,
+            fc_hidden_dim=cfg.model.fc_hidden_dim,
+            fft_len=cfg.model.fft_len,
+            look_ahead=cfg.model.look_ahead,
+            spec_size=cfg.model.spec_size,
+        )
+
+    elif cfg.model.model_type == "fr":
+        model = FrModel(
+            window_hop=cfg.acoustic.hop_length,
+            periods=cfg.model.periods,
+            rnn_layers=2,
+            fr_features_size=cfg.model.fr_features_size,
+            rnn_units=cfg.model.rnn_units,
+            fc_hidden_dim=cfg.model.fc_hidden_dim,
+        )
 
     optimizer = torch.optim.AdamW(
         params=model.parameters(),
@@ -79,6 +90,7 @@ def main(cfg, resume, device):
         config=cfg,
         resume=resume,
         model=model,
+        use_mel=cfg.model.model_type == "base",
         loss_function=loss_function,
         optimizer=optimizer,
         scheduler=lr_scheduler,

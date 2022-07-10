@@ -6,6 +6,7 @@ import torch
 from src.util.acoustic_utils import stft, istft
 from src.util.utils import prepare_empty_dir
 from src.model.vad_model import CrnVad
+from src.model.vad_frequency_cnn import FrModel
 
 
 class BaseInferencer:
@@ -16,7 +17,7 @@ class BaseInferencer:
         # self.device = torch.device("cpu")
 
         self.model, epoch, thresholds = self._load_model(
-            config["model"], checkpoint_path, self.device
+            config, checkpoint_path, self.device
         )
         self.thresholds = thresholds
 
@@ -54,18 +55,28 @@ class BaseInferencer:
         )
 
     @staticmethod
-    def _load_model(model_config, checkpoint_path, device):
+    def _load_model(cfg, checkpoint_path, device):
 
-        model = CrnVad(
-            rnn_layers=model_config.rnn_layers,
-            rnn_units=model_config.rnn_units,
-            kernel_num=model_config.kernel_num,
-            fc_hidden_dim=model_config.fc_hidden_dim,
-            fft_len=model_config.fft_len,
-            look_ahead=model_config.look_ahead,
-            use_offline_norm=model_config.use_offline_norm,
-            spec_size=model_config.spec_size,
-        )
+        if cfg.model.model_type == "base":
+            model = CrnVad(
+                rnn_layers=cfg.model.rnn_layers,
+                rnn_units=cfg.model.rnn_units,
+                kernel_num=cfg.model.kernel_num,
+                fc_hidden_dim=cfg.model.fc_hidden_dim,
+                fft_len=cfg.model.fft_len,
+                look_ahead=cfg.model.look_ahead,
+                spec_size=cfg.model.spec_size,
+            )
+
+        elif cfg.model.model_type == "fr":
+            model = FrModel(
+                window_hop=cfg.acoustic.hop_length,
+                periods=cfg.model.periods,
+                rnn_layers=2,
+                fr_features_size=cfg.model.fr_features_size,
+                rnn_units=cfg.model.rnn_units,
+                fc_hidden_dim=cfg.model.fc_hidden_dim,
+            )
 
         model_checkpoint = torch.load(checkpoint_path, map_location="cpu")
         model_static_dict = model_checkpoint["model"]

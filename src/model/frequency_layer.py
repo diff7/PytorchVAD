@@ -38,6 +38,7 @@ def find_min_padding(size, divisor, step=1):
 
 def get_min_seq_len(l, periods, w):
     sizes = []
+    f_paddings = []
     for p in periods:
         pad_size = find_min_padding(l, p)
         lt = l + pad_size
@@ -47,9 +48,7 @@ def get_min_seq_len(l, periods, w):
 
 
 class FreqFilter(nn.Module):
-    def __init__(
-        self, period, window, features, seq_len, min_seq_len, dropout=0.2
-    ):
+    def __init__(self, period, window, features):
 
         """
         The idea here is quite simple but we need to do a lot of tiny steps to get correct same size
@@ -59,21 +58,14 @@ class FreqFilter(nn.Module):
         self.p = period
         self.w = window
         self.f = features
-        self.m = int(min_seq_len)
 
         # it is hacky but easier with paddings
         if self.p % 2 == 0:
             self.p += 1
 
-        pad_size = find_min_padding(seq_len, self.p)
-        self.l = seq_len + pad_size
-        self.padder = LenPadder(pad_size)
-
-        self.f_padding = find_min_padding(self.l // self.p, self.w)
         self.filter = nn.Sequential(
-            nn.Dropout(dropout),
             nn.Conv2d(
-                self.f,
+                1,
                 self.f,
                 kernel_size=(1, self.p),
                 padding=(0, self.p // 2),
@@ -84,21 +76,27 @@ class FreqFilter(nn.Module):
                 self.f,
                 self.f,
                 kernel_size=(window, 1),
-                padding=(self.f_padding, 0),
+                padding=(
+                    self.p + 140,
+                    0,
+                ),  # 140 is an averge min padding: f_padding in get_min_seq_len
                 stride=(window, 1),
             ),
             nn.PReLU(),
         )
-        self.norm = nn.LayerNorm([self.f, self.m])
 
-    def forward(self, seq):
+    def forward(self, seq, seq_len, min_sequence_len):
         # B X Features X SEQ_LEN
-        seq = seq.transpose(1, 2)
-        seq = self.padder(seq)
-        seq = seq.view(-1, self.f, self.l // self.p, self.p)
-        seq = self.filter(seq)
+        pad_size = find_min_padding(seq_len, self.p)
+        l = seq_len + pad_size
 
-        seq = seq.view(
-            -1, self.f, (self.l // self.p + self.f_padding) // self.w * self.p,
-        )
-        return self.norm(seq[:, :, : self.m])
+        # seq = seq.transpose(1, 2)
+        seq = F.pad(seq, (0, pad_size), "constant")
+
+        seq = seq.view(-1, 1, l // self.p, self.p)
+        seq = self.filter(seq)
+        b, f, k, p = seq.shape
+        seq = seq.view(-1, self.f, k * p)
+        # print(seq.shape, seq_len)
+        # print(min_sequence_len)
+        return seq[:, :, :min_sequence_len]

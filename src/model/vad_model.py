@@ -2,11 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as functional
 
-from src.common.model import BaseModel
 from src.model.module.causal_conv import CausalConvBlock
 
 
-class CrnVad(BaseModel):
+class CrnVad(nn.Module):
     def __init__(
         self,
         rnn_layers=2,
@@ -15,12 +14,10 @@ class CrnVad(BaseModel):
         fc_hidden_dim=64,
         fft_len=160,
         look_ahead=2,
-        use_offline_norm=True,
         spec_size=128,
     ):
         super(CrnVad, self).__init__()
 
-        self.use_offline_norm = use_offline_norm
         self.fc_hidden_dim = fc_hidden_dim
 
         self.kernel_num = kernel_num
@@ -53,12 +50,15 @@ class CrnVad(BaseModel):
         """
             Args:
                 x: [B, 1, F, T]
+
             Returns:
                 [B, T]
             """
         assert x.dim() == 4
         # # Pad look ahead
+        #  print(f"Input {x.shape}")
         x = functional.pad(x, [0, self.look_ahead])
+        #   print(f"after pad {x.shape}")
         batch_size, n_channels, n_freqs, n_frames = x.size()
 
         x_mu = torch.mean(x, dim=(1, 2, 3)).reshape(batch_size, 1, 1, 1)
@@ -68,13 +68,31 @@ class CrnVad(BaseModel):
             x = block(x)
         x = x.permute(0, 3, 1, 2)
         x = x.reshape(batch_size, n_frames, -1).contiguous()
+
+        #    print(f"Before RNN {x.shape}")
+
         x, (h, c) = self.rnn(x)
         x = self.fc(x)
         x = self.activation(x)
         x = self.classification(x)
         x = self.sigmoid(x)
 
+        # print(f"After RNN {x.shape}")
+        # print(f"After RNN look ahead {x[:, self.look_ahead :, 0]}")
+
         return x[:, self.look_ahead :, 0]
+
+
+if __name__ == "__main__":
+
+    inp = torch.rand((16, 1, 160, 128), device="cuda:0")
+
+    model = CrnVad()
+    model.to(0)
+
+    o = model(inp)
+
+    print(o)
 
 
 # acoustic:
@@ -106,14 +124,3 @@ class CrnVad(BaseModel):
 # Before RNN torch.Size([32, 1820, 1280])
 # After RNN torch.Size([32, 1820, 1])
 # After RNN look ahead torch.Size([32, 1818])
-
-if __name__ == "__main__":
-
-    inp = torch.rand((16, 1, 160, 128), device="cuda:0")
-
-    model = CrnVad()
-    model.to(0)
-
-    o = model(inp)
-
-    print(o)

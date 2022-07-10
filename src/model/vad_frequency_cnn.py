@@ -2,42 +2,36 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as functional
 
-from src.common.model import BaseModel
+from src.model.frequency_layer import FreqFilter, get_min_seq_len
 from src.model.module.causal_conv import CausalConvBlock
 
 
-class CrnVad(BaseModel):
+class FrModel(nn.Module):
     def __init__(
         self,
+        window_hop=160,
+        periods=[3, 11, 25, 51, 101, 201, 251],
         rnn_layers=2,
+        fr_features_size=32,
         rnn_units=128,
-        kernel_num=[1, 16, 32, 64, 128, 256],
         fc_hidden_dim=64,
-        fft_len=160,
-        look_ahead=2,
-        use_offline_norm=True,
-        spec_size=128,
     ):
-        super(CrnVad, self).__init__()
+        super(FrModel, self).__init__()
 
-        self.use_offline_norm = use_offline_norm
         self.fc_hidden_dim = fc_hidden_dim
 
-        self.kernel_num = kernel_num
         self.rnn_units = rnn_units
-        self.fft_len = fft_len
-        self.look_ahead = look_ahead
 
-        self.encoder = nn.ModuleList()
-        for idx in range(len(self.kernel_num) - 1):
-            self.encoder.append(
-                CausalConvBlock(self.kernel_num[idx], self.kernel_num[idx + 1])
-            )
+        self.frequencies = nn.ModuleList(
+            [FreqFilter(p, window_hop, fr_features_size,) for p in periods]
+        )
 
-        hidden_dim = spec_size // (2 ** (len(self.kernel_num) - 1))
+        self.window_hop = window_hop
+        self.periods = periods
+        hidden_dim = len(periods) * fr_features_size
 
-        self.rnn = nn.LSTM(
-            input_size=hidden_dim * self.kernel_num[-1],
+        self.rnn = nn.GRU(
+            input_size=hidden_dim,
             hidden_size=self.rnn_units,
             num_layers=rnn_layers,
             dropout=0.0,
@@ -49,50 +43,27 @@ class CrnVad(BaseModel):
         self.classification = nn.Linear(self.fc_hidden_dim, 1)
         self.sigmoid = nn.Sigmoid()
 
-    def forward(self, x):
-        """
-            Args:
-                x: [B, 1, F, T]
+    def forward(self, signal):
+        assert signal.dim() == 2
+        seq_len = signal.shape[1]
+        min_sequence_len = get_min_seq_len(
+            seq_len, self.periods, self.window_hop
+        )
 
-            Returns:
-                [B, T]
-            """
-        assert x.dim() == 4
+        frequencies = []
+        signal = signal.unsqueeze(1)
+        for fr in self.frequencies:
+            frequencies.append(fr(signal, seq_len, min_sequence_len))
+        features = torch.cat(frequencies, 1).transpose(1, 2)
+
+        # print("features", features.shape)
         # # Pad look ahead
-        print(f"Input {x.shape}")
-        x = functional.pad(x, [0, self.look_ahead])
-        print(f"after pad {x.shape}")
-        batch_size, n_channels, n_freqs, n_frames = x.size()
 
-        x_mu = torch.mean(x, dim=(1, 2, 3)).reshape(batch_size, 1, 1, 1)
-        x = x / (x_mu + 1e-10)
-
-        for block in self.encoder:
-            x = block(x)
-        x = x.permute(0, 3, 1, 2)
-        x = x.reshape(batch_size, n_frames, -1).contiguous()
-
-        print(f"Before RNN {x.shape}")
-
-        x, (h, c) = self.rnn(x)
+        # x = features.transpose(1, 2)
+        x, (h, c) = self.rnn(features)
         x = self.fc(x)
         x = self.activation(x)
         x = self.classification(x)
         x = self.sigmoid(x)
 
-        print(f"After RNN {x.shape}")
-        print(f"After RNN look ahead {x[:, self.look_ahead :, 0]}")
-
-        return x[:, self.look_ahead :, 0]
-
-
-if __name__ == "__main__":
-
-    inp = torch.rand((16, 1, 160, 128), device="cuda:0")
-
-    model = CrnVad()
-    model.to(0)
-
-    o = model(inp)
-
-    print(o)
+        return x

@@ -15,6 +15,7 @@ class Trainer(BaseTrainer):
         config,
         resume: bool,
         model,
+        use_mel: bool,
         loss_function,
         optimizer,
         scheduler,
@@ -38,13 +39,15 @@ class Trainer(BaseTrainer):
         self.train_dataloader = train_dataloader
         self.valid_dataloader = validation_dataloader
 
-        self.mel_spectrogram = MelSpectrogram(
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            center=center,
-            n_mels=n_mel,
-        )
+        self.use_mel = use_mel
+        if use_mel:
+            self.mel_spectrogram = MelSpectrogram(
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=win_length,
+                center=center,
+                n_mels=n_mel,
+            )
 
     def _train_epoch(self, epoch):
         loss_total = 0.0
@@ -60,21 +63,22 @@ class Trainer(BaseTrainer):
                 labels = labels.to(self.device)
                 mask = mask.to(self.device)
 
+            if self.use_mel:
                 self.mel_spectrogram = self.mel_spectrogram.to(self.device)
+                noisy = self.mel_spectrogram(noisy).unsqueeze(1)
 
-                noisy_amp = self.mel_spectrogram(noisy)
-                pred_scores = self.model(noisy_amp.unsqueeze(1))
-                pred_scores = pred_scores[:, : labels.size(-1)]
-                loss = self.loss_function(pred_scores, labels, mask)
+            pred_scores = self.model(noisy)
+            pred_scores = pred_scores[:, : labels.size(-1)]
+            loss = self.loss_function(pred_scores, labels, mask)
 
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(
-                    self.model.parameters(), self.clip_grad_norm_value
-                )
-                self.optimizer.step()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(
+                self.model.parameters(), self.clip_grad_norm_value
+            )
+            self.optimizer.step()
 
-                loss_total += loss.item()
-                pgbr.desc = desc + " loss = {:5.3f}".format(loss.item())
+            loss_total += loss.item()
+            pgbr.desc = desc + " loss = {:5.3f}".format(loss.item())
 
             self.writer.add_scalar(
                 f"Loss/Train", loss_total / len(self.train_dataloader), epoch,
@@ -112,11 +116,11 @@ class Trainer(BaseTrainer):
             noisy = noisy.to(self.device)
             labels = labels.to(self.device)
 
-            self.mel_spectrogram = self.mel_spectrogram.to(self.device)
+            if self.use_mel:
+                self.mel_spectrogram = self.mel_spectrogram.to(self.device)
+                noisy = self.mel_spectrogram(noisy).unsqueeze(1)
 
-            noisy_mel = self.mel_spectrogram(noisy)
-
-            pred_scores = self.model(noisy_mel.unsqueeze(1))
+            pred_scores = self.model(noisy)
             pred_scores = pred_scores[:, : labels.size(-1)]
 
             loss = self.loss_function(pred_scores, labels)
