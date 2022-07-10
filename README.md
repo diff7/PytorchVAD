@@ -132,7 +132,7 @@ The main block of the model is in /src/model/frequency_layer.py
 Apart from P the block is also processed with some "window" size to aggregate input signal.
 
 
-## Models review:
+## Literature review:
 
 There are several types of models for VAD problem, some of them DNN based and some are not and rely on classical solutions (WebRTC - GMM). One of the main challenges for VAD is noise and signal strength, here DNN based solutions excel the most. Usually, DNN based solutions are combination of CNN and RNN layers or only one from the both.
 
